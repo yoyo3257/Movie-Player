@@ -5,7 +5,9 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import 'movie_model.dart';
 
 class MovieService {
-  final Box moviesBox = Hive.box('moviesBox');
+  // ✅ Lazy getter instead of direct initialization
+  Box get moviesBox => Hive.box('moviesBox');
+
   final Dio _dio = Dio(
     BaseOptions(
       baseUrl: Constant.baseUrl,
@@ -18,6 +20,7 @@ class MovieService {
 
   Future<List<Movie>> fetchMovies(int page) async {
     final cacheKey = 'page_$page';
+
     try {
       final response = await _dio.get(
         'movie/popular',
@@ -26,13 +29,17 @@ class MovieService {
 
       if (response.statusCode == 200) {
         final List results = response.data['results'];
+        // ✅ Cache the data
         await moviesBox.put(cacheKey, results);
         return results.map((json) => Movie.fromJson(json)).toList();
       } else {
         throw Exception('Server error: ${response.statusCode}');
       }
     } on DioException catch (e) {
-      // custom error handling
+      // Log to Sentry
+      await Sentry.captureException(e);
+
+      // Custom error handling
       if (e.type == DioExceptionType.connectionTimeout) {
         throw Exception('Connection Timeout');
       } else if (e.type == DioExceptionType.badResponse) {
@@ -44,15 +51,32 @@ class MovieService {
       // Log error to Sentry
       await Sentry.captureException(error, stackTrace: stackTrace);
 
-      // If there's cached data, use it
+      // ✅ Try to load from cache
       if (moviesBox.containsKey(cacheKey)) {
         final cachedData = moviesBox.get(cacheKey) as List;
         return cachedData
             .map((e) => Movie.fromJson(Map<String, dynamic>.from(e)))
             .toList();
       } else {
-        rethrow; // no cache, throw the error
+        rethrow; // No cache available
       }
     }
+  }
+
+  // ✅ Get all cached movies (for offline mode)
+  Future<List<Movie>> getAllCachedMovies() async {
+    final allMovies = <Movie>[];
+
+    for (var key in moviesBox.keys) {
+      if (key.toString().startsWith('page_')) {
+        final cachedData = moviesBox.get(key) as List;
+        final movies = cachedData
+            .map((e) => Movie.fromJson(Map<String, dynamic>.from(e)))
+            .toList();
+        allMovies.addAll(movies);
+      }
+    }
+
+    return allMovies;
   }
 }

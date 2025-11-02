@@ -12,7 +12,7 @@ class MovieDetailsPage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Movie Details'),
+        title: const Text('Movie Details'),
         backgroundColor: isDark
             ? Colors.grey.shade900
             : Colors.blueAccent.shade100,
@@ -21,18 +21,49 @@ class MovieDetailsPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(height: 20),
-            // Movie poster
+            const SizedBox(height: 20),
+            // ✅ Movie poster with null safety
             Center(
-              child: Image.network(
-                'https://image.tmdb.org/t/p/w154${movie.posterPath}',
-                height: 300,
-                width: 180,
-                fit: BoxFit.cover,
-              ),
+              child: movie.posterPath != null
+                  ? Image.network(
+                      'https://image.tmdb.org/t/p/w500${movie.posterPath}',
+                      height: 300,
+                      width: 200,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          height: 300,
+                          width: 200,
+                          color: Colors.grey[300],
+                          child: const Icon(Icons.movie, size: 80),
+                        );
+                      },
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return SizedBox(
+                          height: 300,
+                          width: 200,
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              value: loadingProgress.expectedTotalBytes != null
+                                  ? loadingProgress.cumulativeBytesLoaded /
+                                        loadingProgress.expectedTotalBytes!
+                                  : null,
+                            ),
+                          ),
+                        );
+                      },
+                    )
+                  : Container(
+                      height: 300,
+                      width: 200,
+                      color: Colors.grey[300],
+                      child: const Icon(Icons.movie, size: 80),
+                    ),
             ),
             const SizedBox(height: 16),
-            // Title and date
+
+            // Title
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: Text(
@@ -42,6 +73,19 @@ class MovieDetailsPage extends StatelessWidget {
                 ),
               ),
             ),
+            const SizedBox(height: 8),
+
+            // Release Date
+            if (movie.releaseDate.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: Text(
+                  'Released: ${movie.releaseDate}',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
+                ),
+              ),
             const SizedBox(height: 16),
 
             // Rating
@@ -57,10 +101,19 @@ class MovieDetailsPage extends StatelessWidget {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
+                  const SizedBox(width: 16),
+                  Text(
+                    '(${movie.voteCount} votes)',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
+                  ),
                 ],
               ),
             ),
             const SizedBox(height: 24),
+
+            // Description Header
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: Text(
@@ -68,6 +121,8 @@ class MovieDetailsPage extends StatelessWidget {
                 style: Theme.of(context).textTheme.headlineLarge,
               ),
             ),
+            const SizedBox(height: 8),
+
             // Overview
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
